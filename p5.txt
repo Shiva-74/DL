@@ -1,0 +1,116 @@
+
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+from collections import Counter
+
+# Sample text
+text = """
+the quick brown fox jumps over the lazy dog
+neural networks learn representations from data
+deep learning models are trained with gradient descent
+language models predict the next word given a context
+recurrent neural networks process sequential data
+artificial intelligence helps computers solve complex problems
+machine learning algorithms learn patterns from examples
+natural language processing allows computers to understand text
+python is a popular programming language
+computer science deals with algorithms and data structures
+students learn mathematics science and engineering
+technology improves communication and education
+the internet connects people around the world
+data science uses statistics and machine learning
+convolutional neural networks are used for image recognition
+recurrent networks are useful for sequence prediction
+an embedding layer converts words into numerical vectors
+the hidden state stores information from previous words
+an optimizer updates model weights during training
+the loss function measures prediction errors
+training a neural network requires data and computation
+supervised learning uses labeled training examples
+unsupervised learning discovers hidden patterns in data
+reinforcement learning trains agents through rewards
+large datasets improve machine learning performance
+a computer processes instructions using hardware and software
+artificial intelligence is changing the modern world
+students write programs to solve practical problems
+databases store information in an organized format
+cloud computing provides resources over the internet
+"""
+text = text.lower().split() * 500
+
+# Build vocabulary
+vocab = ["<unk>", "<pad>"] + [w for w, c in Counter(text).most_common(4998)]
+word2idx = {w:i for i, w in enumerate(vocab)}
+idx2word = {i:w for i, w in enumerate(vocab)}
+data = [word2idx[w] for w in text]
+
+print("Tokens:", len(data))
+print("Vocabulary:", len(vocab))
+
+# Create sequences
+class TextData(Dataset):
+    def __len__(self):
+        return len(data) - 30
+
+    def __getitem__(self, i):
+        return torch.tensor(data[i:i+30]), torch.tensor(data[i+30])
+
+loader = DataLoader(TextData(), batch_size=128, shuffle=True)
+
+# LSTM model
+class LSTM(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.embed = nn.Embedding(len(vocab), 128)
+        self.lstm = nn.LSTM(128, 256, 2, batch_first=True, dropout=0.3)
+        self.fc = nn.Linear(256, len(vocab))
+
+    def forward(self, x):
+        x, _ = self.lstm(self.embed(x))
+        return self.fc(x[:, -1, :])
+
+model = LSTM()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+loss_fn = nn.CrossEntropyLoss()
+
+# Training
+for epoch in range(10):
+    total_loss = correct = total = 0
+
+    for x, y in loader:
+        out = model(x)
+        loss = loss_fn(out, y)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item() * len(y)
+        correct += (out.argmax(1) == y).sum().item()
+        total += len(y)
+
+    print("Epoch:", epoch+1,
+          "Loss:", round(total_loss/total, 4),
+          "Accuracy:", round(correct/total*100, 2), "%")
+
+# Next-word prediction
+def predict(text):
+    model.eval()
+    ids = [word2idx.get(w, 0) for w in text.lower().split()[-30:]]
+    ids = [1] * (30-len(ids)) + ids
+
+    with torch.no_grad():
+        out = torch.softmax(model(torch.tensor([ids]))[0], dim=0)
+        values, indices = out.topk(5)
+
+    print("\nInput:", text)
+    print("Top 5 predictions:")
+    for i, p in zip(indices.tolist(), values.tolist()):
+        print(idx2word[i], round(p, 4))
+
+predict("neural networks learn representations from")
+predict("artificial intelligence helps computers")
+predict("students learn mathematics and")
+
+print("\nLab 5 complete!")
