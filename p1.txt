@@ -1,0 +1,30 @@
+import numpy as np
+
+def sigmoid(x):
+  return 1/(1 + np.exp(-x))
+
+X = np.array([[0,0], [0,1], [1,0], [1,1]])
+for gate, y in [("AND", [0,0,0,1]), ("OR", [0,1,1,1])]:
+  w = np.random.randn(2) * 0.01
+  b = 0
+
+  print("\nTraining:", gate)
+  for epoch in range(10000):
+    loss = 0
+
+    for x, t in zip(X,y):
+      o = sigmoid(x @ w + b)
+      d = (t - o) * o * (1 - o)
+      w += 0.1 * d * x
+      b += 0.1 * d
+      loss += (t - o) ** 2
+
+    if (epoch + 1) % 2000 == 0:
+      print(f"Epoch {epoch + 1}, Loss: {round(loss,6)}")
+  print(f"\n{gate} Results:")
+
+  for x, t in zip(X,y):
+    o = sigmoid(x @ w + b)
+    print(f"{x} Expected {t}, Predicted {int(o >= 0.5)}, raw output {round(o,6)}")
+  print(f"Weights:{w}, Bias:{b}")
+      
